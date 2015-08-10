@@ -140,23 +140,41 @@ char *
 getifaddr(void)
 {
 	struct ifaddrs *ifaddr, *ifa;
-        int i = 0, s;
         char host[NI_MAXHOST], output[200] = { 0 }, buf[100];
 
         if(getifaddrs(&ifaddr) == 1)    
-                return 0xff;
+                return 0;
 
         for(ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next)
         {       
                 if(strncmp(ifa->ifa_name, "virbr", 5) != 0 && strncmp(ifa->ifa_name, "lo", 2) != 0 && ifa->ifa_addr->sa_family == AF_INET )
                 {
-                        s = getnameinfo(ifa->ifa_addr, sizeof(struct sockaddr_in), host, NI_MAXHOST, NULL, 0, NI_NUMERICHOST);
+                        getnameinfo(ifa->ifa_addr, sizeof(struct sockaddr_in), host, NI_MAXHOST, NULL, 0, NI_NUMERICHOST);
                         sprintf(buf, " %s: %s |", ifa->ifa_name, host);
                         strcat(output, buf);
                 }
         }
         freeifaddrs(ifaddr);
         return smprintf("%s", output);
+}
+
+char *
+gettemp(void)
+{
+	FILE* thermal_zone0 = fopen("/sys/class/thermal/thermal_zone0/temp", "r");
+        FILE* thermal_zone1 = fopen("/sys/class/thermal/thermal_zone1/temp", "r");
+
+        float temp0, temp1;
+        temp0 = temp1 = 0;
+
+        fscanf(thermal_zone0, "%f", &temp0);
+        fscanf(thermal_zone1, "%f", &temp1);
+	fclose(thermal_zone0);
+	fclose(thermal_zone1);
+        temp0 /= 1000;
+        temp1 /= 1000;
+
+        return smprintf("TEMP %.1fC %.1fC", temp0, temp1);
 }
 
 int
@@ -168,6 +186,7 @@ main(void)
         char *cpu;
 	char *battery;
 	char *ifaddr;
+	char *temp;
         int i = 0;
 
 	if (!(dpy = XOpenDisplay(NULL))) {
@@ -185,9 +204,10 @@ main(void)
 		tmcentral = mktimes("%Y-%m-%d %H:%M:%S", tzcentral);
 		battery = getbattery();
 		ifaddr = getifaddr();
+		temp = gettemp();
 
-		status = smprintf("%s BAT %s | CPU %s | %s",
-				ifaddr, battery, cpu, tmcentral);
+		status = smprintf("%s | %s BAT %s | CPU %s | %s",
+				temp, ifaddr, battery, cpu, tmcentral);
 		setstatus(status);
 		/*free(avgs);*/
 		free(tmcentral);
