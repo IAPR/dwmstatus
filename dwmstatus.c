@@ -128,12 +128,26 @@ cpu_usage(void)
 char *
 getbattery(void)
 {
-	FILE* f;
-	char bat[5];
-	f = fopen("/sys/class/power_supply/BAT0/capacity", "r");
-	fscanf(f, "%s", bat);
-	fclose(f);
-    	return smprintf("%s", bat);
+	FILE *charge_full_design, *charge_now, *status;
+	int full = 0, now = 0;
+	float battery = 0.0;
+	char stat = '\0';
+	
+	charge_full_design = fopen("/sys/class/power_supply/BAT0/charge_full_design", "r");
+	charge_now = fopen("/sys/class/power_supply/BAT0/charge_now", "r");
+	status =  fopen("/sys/class/power_supply/BAT0/status", "r");
+
+	fscanf(charge_full_design, "%i", &full);
+	fscanf(charge_now, "%i", &now);
+	fscanf(status, "%c", &stat);
+
+	battery = (float)((now*100)/full);
+	
+	fclose(status);
+	fclose(charge_now);
+	fclose(charge_full_design);
+    	
+	return smprintf("%.2f%%[%c]", battery, stat);
 }
 
 char *
